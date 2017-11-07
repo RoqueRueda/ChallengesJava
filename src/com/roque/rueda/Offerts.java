@@ -1,7 +1,6 @@
 package com.roque.rueda;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class Offerts {
 
@@ -23,42 +22,113 @@ public class Offerts {
                 new Product("Fanta", 7.00, Product.Type.soda),
                 new Product("Abuelita", 16.00, Product.Type.chocolate)};
 
-        System.out.println(Arrays.asList(products));
-
-        getRevenue(Arrays.asList(products[1], products[1], products[1], products[1], products[1]));
-
-        // Iterate over the items
-        // Add the price of the items
-        // Substract the lowest price
-        // Get the revenue
+        int numberOfItems = 5;
 
         // Display all possibilities
-        // Order the possibilities by biggest to lower
+        Product[][] allPermutations = generateAllPermutations(products, numberOfItems);
+        ArrayList<Revenue> revenueList = new ArrayList<>(allPermutations.length);
 
+        // Get all the revenues of the combinations
+        for (int i = 0; i < allPermutations.length; i ++) {
+            ArrayList<Product> combination = new ArrayList<>(numberOfItems);
+            for (int j = 0; j < numberOfItems; j ++) {
+                combination.add(allPermutations[i][j]);
+            }
+            revenueList.add(new Revenue(combination));
+        }
 
+        Collections.sort(revenueList, Comparator.comparingInt(revenue -> (int) revenue.getTotalRevenue()));
+        for (Revenue r :
+                revenueList) {
+            System.out.println(r);
+        }
 
     }
 
-    public static double getRevenue(List<Product> productList) {
-        double totalPrice = 0;
-        double revenue = 0;
-        Product firstItem = productList.get(1);
-        double lowestPrice = firstItem.price;
-        double minusRevenue =  firstItem.price * (firstItem.type.gain() / 100d);
-        for (Product p :
-                productList) {
-            if (p.price < lowestPrice) {
-                lowestPrice = p.price;
-                minusRevenue = p.price * ((double)p.type.gain() / 100d);
-            }
-            totalPrice += p.price;
-            revenue += p.price * ((double)p.type.gain() / 100d);
+    /**
+     * Get all the possible permutations without repetitions
+     * @param elements List of elements
+     * @param numberOfItems Number of items per combination
+     * @return Matrix with all the possible permutations
+     */
+    private static Product[][] generateAllPermutations(Product[] elements, int numberOfItems) {
+        // Math formula to get the number of permutations
+        double up = calculateFactorial(numberOfItems + elements.length - 1);
+        double down = calculateFactorial(numberOfItems) * calculateFactorial(elements.length -1);
+
+        double numberOfCombinations = up / down;
+
+        Product[][] combinationMatriz = new Product[(int)numberOfCombinations][numberOfItems];
+
+        int[] elementIndex = new int[numberOfItems];
+        int elementCounter = numberOfItems -1;
+
+        // Set the index to 0
+        for (int i = 0; i < elementIndex.length; i ++) {
+            elementIndex[i] = 0;
         }
 
-        System.out.println("Total Price: " +  totalPrice + " - " +
-                "lowest price: " + lowestPrice + " revenue:" + revenue + " minus revenue:" + minusRevenue);
-        System.out.println("Result Price: " +  ( totalPrice - lowestPrice ) );
-        return revenue - minusRevenue;
+        // Iterate over the matrix
+        for (int i = 0; i < numberOfCombinations; i ++) {
+            for (int j = 0; j < numberOfItems; j ++) {
+                // Retrieve the element using the element index
+                combinationMatriz[i][j] = elements[elementIndex[j]];
+            }
+            // Increase the index by one
+            elementIndex[elementCounter] += 1;
+            // Check if the index are ok or if they need to add one
+            // to the next digit
+            checkIndex(elementIndex, elements.length);
+        }
+
+        return combinationMatriz;
+
+    }
+
+    /**
+     * Check if the index of the permutation are ok or if they
+     * need to add another value to the previous digit
+     * @param elementsIndex Index elements
+     * @param numberOfElements number of elements allowed per combination
+     */
+    private static void checkIndex(int[] elementsIndex,int numberOfElements) {
+        for (int i = elementsIndex.length - 1; i > 0; i--) {
+            // Check the last element if its less than the number of elements
+            if (elementsIndex[i] > numberOfElements-1) {
+                // Add one to the left
+                if (i-1 >= 0){
+                    elementsIndex[i-1] ++;
+                    int indexToChange = i;
+                    do {
+                        elementsIndex[indexToChange] = elementsIndex[i-1];
+                        indexToChange++;
+                    } while (indexToChange < elementsIndex.length);
+
+                }
+            }
+        }
+    }
+
+    /**
+     * Calculate the factorial of a number using a for loop
+     * @param factorialBase Base of the factorial used to calculate the result
+     * @return Factorial of the base
+     */
+    private static long calculateFactorial(long factorialBase) {
+        if (factorialBase < 0) {
+            throw new IllegalArgumentException("The factorial base is less than 0");
+        }
+
+        if (factorialBase < 2) {
+            return 1;
+        }
+
+        long result = 1;
+        for (long i = factorialBase; i > 0; i--) {
+            result *= i;
+        }
+
+        return result;
     }
 
 }
@@ -95,3 +165,85 @@ class Product {
         return string;
     }
 }
+
+class Revenue {
+    private List<Product> items;
+    private Product cheapProduct;
+
+    private double totalPrice;
+    private double revenue;
+    private double lowestPrice;
+    private double lowestRevenue;
+    private double totalRevenue;
+
+    public Revenue(List<Product> products) {
+        this.items = products;
+        loadValues();
+    }
+
+    /**
+     * Load all the values for this class.
+     */
+    private void loadValues(){
+        if (items != null && items.size() > 0) {
+
+            // The first item will be consider as the cheapest one.
+            cheapProduct = items.get(1);
+            lowestPrice = cheapProduct.price;
+            lowestRevenue = calculateRevenue(cheapProduct.price, cheapProduct.type.gain());
+
+            // Iterate over all the products to determine the values
+            for (int i = 0; i < items.size(); i++) {
+                Product p = items.get(i);
+                if (p.price < lowestPrice) {
+                    // If we find a lower price product we must
+                    // set it as the cheapest product
+                    cheapProduct = p;
+                    lowestPrice = cheapProduct.price;
+                    lowestRevenue = calculateRevenue(cheapProduct.price, cheapProduct.type.gain());
+                }
+
+                // Calculate the total price of all products
+                totalPrice += p.price;
+                // Calculate the total revenue
+                revenue += calculateRevenue(p.price, p.type.gain());
+            }
+
+            // The total price is the sum of all the prices except for the cheapest product
+            totalPrice = totalPrice - cheapProduct.price;
+            // Also the revenue will be the sum of all revenues except the cheapest product
+            totalRevenue = revenue - lowestRevenue;
+        } else {
+            throw new IllegalArgumentException("You should provide a valid Product list " +
+                    "(not null and with at least one item)");
+        }
+    }
+
+    public String getProductNames(){
+        StringBuilder sb = new StringBuilder("Combination of products{ ");
+        for (Product p :
+                items) {
+            sb.append(p.name).append(" ");
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    public double getTotalPrice() {
+        return totalPrice;
+    }
+
+    public double getTotalRevenue() {
+        return totalRevenue;
+    }
+
+    private double calculateRevenue(double price, double gain) {
+        return price * (gain / 100d);
+    }
+
+    @Override
+    public String toString() {
+        return "Revenue " + getProductNames() + " revenue is: " + totalRevenue + " and price is: " + totalPrice;
+    }
+}
+
